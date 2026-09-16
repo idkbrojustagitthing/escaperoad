@@ -67,7 +67,26 @@
 			return true;
 		} */
 	</script>
-	<script id="gmsoft-jssdk" src="gmsoftsdk_v5-renamed-so-it-cant-fetch.js"></script>
+	<script id="gmsoft-jssdk">
+/* azgames SDK neutered by request: no ads, no cross-promo, no embed gate - game only */
+(function(){
+  window.GMSOFT_OPTIONS = Object.assign(window.GMSOFT_OPTIONS||{}, {
+    enableAds:false, enablePromotion:false, enableMoreGame:"no",
+    allow_embed:"yes", allow_host:"yes", allow_play:"yes",
+    pub_id:"", sdkType:"", promotion:null, sourceHtml:null, unlockTimer:0, unlock_timer:0
+  });
+  window.GMDEBUG = window.GMDEBUG||{};
+  var noop=function(){};
+  window.adConfig = noop;
+  window.adsbygoogle = window.adsbygoogle||[]; window.adsbygoogle.push=function(){return;};
+  window.afg = { requestAd:false, adConfig:noop, onBeforeAd:noop, onAfterAd:noop,
+    adBreak:function(o){try{o&&o.beforeAd&&o.beforeAd();o&&o.afterAd&&o.afterAd();o&&o.adBreakDone&&o.adBreakDone();o&&o.adDismissed&&o.adDismissed();}catch(e){}} };
+  function ready(){ try{ document.dispatchEvent(new CustomEvent("gmsoftSdkReady")); }catch(e){} }
+  ready();
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded", ready); }
+  window.addEventListener("load", ready);
+})();
+</script>
 </head>
 
 <body>
