@@ -90,16 +90,26 @@
 
   <script>
     var buildUrl = "25011401/Build";
+    var versionFolder = "25011401/";
     var loaderUrl = buildUrl + "/escape-road-v25011401.loader.js";
     var config = {
       dataUrl: buildUrl + "/escape-road-v25011401.data.unityweb",
       frameworkUrl: buildUrl + "/escape-road-v25011401.framework.js.unityweb",
       codeUrl: buildUrl + "/escape-road-v25011401.wasm.unityweb",
-      streamingAssetsUrl: "25011401/StreamingAssets",
+      streamingAssetsUrl: versionFolder + "StreamingAssets",
       companyName: "azgames.io",
       productName: "Escape Road",
-      productVersion: "25011401"
+      productVersion: "25011401",
+      pubId: ""
     };
+    config.gameId = "escape-road";
+    config.eventLog = true;
+    config.buildAPI = "https://event.azgame.io/apiaz/event";
+    var currentDate = new Date();
+    var endLogDate = new Date("2025-03-08T07:31:48.701Z");
+    if (currentDate > endLogDate) { config.eventLog = false; }
+    config.enableMoreGame = "no";
+    config.enablePromotion = false;
   </script>
 </head>
 
