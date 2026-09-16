@@ -1,6 +1,35 @@
 <!DOCTYPE html>
 <html lang="en-us">
 <head>
+<script>
+/* Block azgames promo/embed SDK (loaded remotely by the Unity build) so it can't overlay/replace the game */
+(function(){
+  var BAD = /gmsoftsdk|azgame\.io|1games\.io|wgplayer|pagead2\.googlesyndication/i;
+  var _create = Document.prototype.createElement;
+  Document.prototype.createElement = function(tag){
+    var el = _create.call(this, tag);
+    if(String(tag).toLowerCase()==="script"){
+      try{
+        var proto = HTMLScriptElement.prototype;
+        var dsrc = Object.getOwnPropertyDescriptor(proto,"src");
+        Object.defineProperty(el,"src",{configurable:true,
+          get:function(){ return dsrc.get.call(el); },
+          set:function(v){ if(BAD.test(String(v))) return; dsrc.set.call(el, v); }});
+        var _sa = el.setAttribute.bind(el);
+        el.setAttribute = function(n,v){ if(String(n).toLowerCase()==="src" && BAD.test(String(v))) return; return _sa(n,v); };
+      }catch(e){}
+    }
+    return el;
+  };
+  ["appendChild","insertBefore"].forEach(function(m){
+    var orig = Node.prototype[m];
+    Node.prototype[m] = function(node){
+      try{ if(node && node.tagName==="SCRIPT" && BAD.test(String(node.src||node.getAttribute&&node.getAttribute("src")||""))) return node; }catch(e){}
+      return orig.apply(this, arguments);
+    };
+  });
+})();
+</script>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 	<link rel="stylesheet" href="25011401/theme/game.css">
