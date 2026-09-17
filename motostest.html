@@ -4,7 +4,18 @@
     <!-- base href trick: relative paths resolve to the game's folder on jsDelivr (Cloudflare-only host) -->
     <base href="https://testingcf.jsdelivr.net/gh/idkbrojustagitthing/whatver@main/motox3m/">
 
-    <!-- Force crossOrigin on every image so cross-origin (jsDelivr) textures can be used by WebGL -->
+    <!-- Force the Canvas 2D renderer (block WebGL) so cross-origin jsDelivr images don't taint WebGL textures -->
+    <script>
+      (function(){
+        var _gc = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function(type){
+          if(type === "webgl" || type === "experimental-webgl" || type === "webgl2"){ return null; }
+          return _gc.apply(this, arguments);
+        };
+      })();
+    </script>
+
+    <!-- Force crossOrigin on every image so cross-origin (jsDelivr) images work with canvas readback -->
     <script>
       (function(){
         try{
