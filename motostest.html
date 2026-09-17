@@ -66,9 +66,9 @@
         var n = 0, iv = setInterval(function(){
           var advanced = false;
           try{ advanced = !!(window.PIXI && PIXI.game && PIXI.game.state && PIXI.game.state.current && PIXI.game.state.current !== "boot"); }catch(e){}
-          if(advanced || ++n > 12){ clearInterval(iv); return; }
+          if(advanced || ++n > 160){ clearInterval(iv); return; }
           fire();
-        }, 400);
+        }, 500);
         window.addEventListener("load", fire);
       })();
     </script>
