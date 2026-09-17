@@ -53,5 +53,24 @@
       var nape = "nape.min.js";
     </script>
     <script type="text/javascript" src="motox3m.min.js"></script>
+
+    <!-- Auto-start (no ads): the game waits in its boot state for the ad SDK's SDK_GAME_START event. -->
+    <script>
+      (function(){
+        function fire(){ var c = document.getElementById("content"); if(c){ try{ c.dispatchEvent(new Event("SDK_GAME_START")); }catch(e){} } }
+        // stub ad calls so mid-game ad requests resume instantly instead of hanging
+        window.sdk = window.sdk || {};
+        window.sdk.showBanner = function(){ setTimeout(fire, 30); };
+        window.sdk.showAd = window.sdk.showAd || function(){ setTimeout(fire, 30); };
+        // fire SDK_GAME_START until the game leaves the boot state (its listener registers during boot)
+        var n = 0, iv = setInterval(function(){
+          var advanced = false;
+          try{ advanced = !!(window.PIXI && PIXI.game && PIXI.game.state && PIXI.game.state.current && PIXI.game.state.current !== "boot"); }catch(e){}
+          if(advanced || ++n > 12){ clearInterval(iv); return; }
+          fire();
+        }, 400);
+        window.addEventListener("load", fire);
+      })();
+    </script>
   </body>
 </html>
