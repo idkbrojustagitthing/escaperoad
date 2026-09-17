@@ -35,6 +35,20 @@
     })();
   </script>
 
+  <!-- force crossOrigin on all images so THREE.js textures from jsDelivr don't taint the canvas -->
+  <script>
+    (function(){
+      try{
+        var d = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "src");
+        Object.defineProperty(HTMLImageElement.prototype, "src", {
+          configurable: true,
+          get: function(){ return d.get.call(this); },
+          set: function(v){ try{ if(!this.crossOrigin) this.crossOrigin = "anonymous"; }catch(e){} d.set.call(this, v); }
+        });
+      }catch(e){}
+    })();
+  </script>
+
   <link rel="manifest" href="manifest.json" />
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
