@@ -32,6 +32,19 @@
       setPlaytestCanvas: function(){}, enableEventTracking: function(){},
       setDebugTouchOverlayController: function(){}
     };
+
+    /* Poki-Unity bridge (from the game's unity-2020.js): the Unity build calls window.initPokiBridge(gameObject)
+       and waits for a "ready" SendMessage before it proceeds. Reconstructed to use the PokiSDK stub above. */
+    window.pokiReady = false;
+    window.pokiAdBlock = false;
+    window.initPokiBridge = function(n){
+      if(!window.unityGame){ setTimeout(function(){ window.initPokiBridge(n); }, 100); return; }
+      window.pokiBridge = n;
+      window.commercialBreak = function(){ PokiSDK.commercialBreak().then(function(){ window.unityGame.SendMessage(n,"commercialBreakCompleted"); }); };
+      window.rewardedBreak = function(){ var e; (e=PokiSDK).rewardedBreak.apply(e,arguments).then(function(r){ window.unityGame.SendMessage(n,"rewardedBreakCompleted",r.toString()); }); };
+      window.shareableURL = function(e){ PokiSDK.shareableURL(e).then(function(r){ window.unityGame.SendMessage(n,"shareableURLResolved",r); }).catch(function(){ window.unityGame.SendMessage(n,"shareableURLRejected"); }); };
+      window.unityGame.SendMessage(n, "ready");
+    };
   </script>
 
   <!-- Reassemble the >20MB Unity wasm from sub-20MB jsDelivr chunks, transparently to Unity's loader -->
@@ -116,6 +129,7 @@
         progressText.innerText = "Loading... " + pct + "%";
       }).then((unityInstance) => {
         window.unityInstance = unityInstance;
+        window.unityGame = unityInstance; /* the Poki bridge waits for window.unityGame */
         setTimeout(function(){ loadingBlock.style.display = "none"; window.focus(); }, 500);
       }).catch((message) => { alert(message); });
     };
