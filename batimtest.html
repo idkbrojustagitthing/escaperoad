@@ -75,6 +75,8 @@
       productName: "Bendy and the Ink Machine",
       productVersion: "0.0.2",
       showBanner: unityShowBanner,
+      // don't try to store the ~550MB build in IndexedDB (quota/timeout) — download+use directly
+      cacheControl: function (url) { return "no-store"; },
     };
 
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
