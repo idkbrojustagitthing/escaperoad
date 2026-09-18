@@ -47,11 +47,12 @@
     </script>
 
     <style>
+      /* canvas pinned to the page origin & filling the window — old Unity input maps 1:1 only
+         when the canvas is NOT offset/centered. No CSS scaling (that broke clicking). */
       html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#7fa8d6; }
-      body { display:flex; align-items:center; justify-content:center; }
-      .webgl-content { display:flex; align-items:center; justify-content:center; }
-      #unityContainer { max-width:100vw; max-height:100vh; background:#7fa8d6; }
-      canvas { background:#7fa8d6 !important; }
+      .webgl-content { position:absolute; top:0; left:0; width:100%; height:100%; }
+      #unityContainer { position:absolute; top:0; left:0; width:100%; height:100%; background:#7fa8d6; }
+      #unityContainer canvas, canvas { position:absolute; top:0; left:0; background:#7fa8d6 !important; }
     </style>
 
     <script src="TemplateData/UnityProgress.js"></script>
@@ -73,26 +74,5 @@
       <div id="unityContainer"></div>
     </div>
 
-    <!-- scale Baldi's tiny fixed-resolution canvas up to fill the screen (keeps aspect + crisp pixels) -->
-    <script>
-      (function(){
-        function fitCanvas(){
-          var c = document.querySelector("#unityContainer canvas") || document.querySelector("canvas");
-          if(!c) return;
-          var cw = c.width || parseInt(c.getAttribute("width")) || c.clientWidth;
-          var ch = c.height || parseInt(c.getAttribute("height")) || c.clientHeight;
-          if(!cw || !ch) return;
-          var scale = Math.min(window.innerWidth / cw, window.innerHeight / ch) * 0.98;
-          // scale via CSS width/height (NOT transform) so Unity's mouse-coordinate mapping and the
-          // clickable area stay aligned — transform:scale breaks clicking the buttons.
-          c.style.transform = "none";
-          c.style.width = Math.round(cw * scale) + "px";
-          c.style.height = Math.round(ch * scale) + "px";
-          c.style.imageRendering = "pixelated";
-        }
-        window.addEventListener("resize", fitCanvas);
-        setInterval(fitCanvas, 400);
-      })();
-    </script>
   </body>
 </html>
