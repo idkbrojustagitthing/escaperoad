@@ -12,6 +12,18 @@
     <meta charset="utf-8"/>
     <title>Denton ISD</title>
 
+    <!-- Drop the Content-Type header GameMaker sets on its .txt/.dat XHR loads: it forces a CORS
+         preflight that jsDelivr rejects (data fails to load). Without it the GET is a "simple" request. -->
+    <script>
+      (function(){
+        var _setHeader = XMLHttpRequest.prototype.setRequestHeader;
+        XMLHttpRequest.prototype.setRequestHeader = function(name, value){
+          if (String(name).toLowerCase() === "content-type") return;
+          return _setHeader.apply(this, arguments);
+        };
+      })();
+    </script>
+
     <!-- Clean PokiSDK stub: self-resolving no-ops so the game starts without ads/tracking -->
     <script>
       window.PokiSDK = {
