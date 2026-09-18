@@ -25,6 +25,12 @@
 
   <!-- Stub the CrazyGames + AdinPlay ad SDKs so the game runs clean/ad-free without erroring -->
   <script>
+    // analytics/site globals the game calls (normally from the stripped site scripts) — no-op
+    window.SendEvent = function(){};
+    window.gtag = function(){};
+    window.dataLayer = window.dataLayer || [];
+    window.aCo = 'US';
+
     // AdinPlay
     window.aiptag = { cmd: { display: { push:function(f){ try{ f&&f(); }catch(e){} } }, player: { push:function(f){ try{ f&&f(); }catch(e){} } } } };
     window.aipDisplayTag = { display:function(){} };
