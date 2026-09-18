@@ -27,18 +27,23 @@
         var _fetch = window.fetch.bind(window);
         window.fetch = function(input, init){
           var url = typeof input === "string" ? input : (input && input.url) || "";
-          if(isRegion(url)) return Promise.reject(new Error("region blocked"));
+          if(isRegion(url)) return Promise.resolve(new Response("", {status:200}));
           return _fetch(input, init);
         };
       }
       var _WS = window.WebSocket;
       if(_WS){
+        // mock WebSocket that never connects (no throw) so the game's netcode doesn't crash on undefined
+        function MockWS(){ this.readyState=0; this.url=""; this.onopen=null; this.onclose=null; this.onerror=null; this.onmessage=null; }
+        MockWS.prototype.send=function(){}; MockWS.prototype.close=function(){ this.readyState=3; };
+        MockWS.prototype.addEventListener=function(){}; MockWS.prototype.removeEventListener=function(){};
+        MockWS.CONNECTING=0; MockWS.OPEN=1; MockWS.CLOSING=2; MockWS.CLOSED=3;
         window.WebSocket = function(url, protocols){
-          if(isRegion(url)) throw new Error("region blocked");
+          if(isRegion(url)) return new MockWS();
           return protocols===undefined ? new _WS(url) : new _WS(url, protocols);
         };
         window.WebSocket.prototype = _WS.prototype;
-        try{ window.WebSocket.CONNECTING=0; window.WebSocket.OPEN=1; window.WebSocket.CLOSING=2; window.WebSocket.CLOSED=3; }catch(e){}
+        window.WebSocket.CONNECTING=0; window.WebSocket.OPEN=1; window.WebSocket.CLOSING=2; window.WebSocket.CLOSED=3;
       }
     })();
   </script>
