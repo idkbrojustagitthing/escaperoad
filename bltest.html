@@ -11,10 +11,11 @@
     <script src="TemplateData/UnityProgress.js"></script>
     <script src="Build/UnityLoader.js"></script>
     <style>
-      /* DON'T override the game's own width:62vh portrait constraint (from repo style.css) — that
-         keeps it in mobile format. Just paint the sides soft blue (root bg fills the viewport). */
-      html { background:#7fa8d6 !important; }
-      body { background:#7fa8d6 !important; }
+      /* Keep the game's own width:62vh portrait constraint (from repo style.css) for mobile format,
+         but LEFT-ALIGN it (margin:0, not auto) so the canvas sits at x=0 — this old Unity build
+         doesn't account for a horizontal offset, so centering breaks clicking. Soft blue fills the rest. */
+      html { background:#7fa8d6 !important; margin:0 !important; }
+      body { background:#7fa8d6 !important; margin:0 !important; }
     </style>
     <script>
       var unityInstance = UnityLoader.instantiate("gameContainer", "https://testingcf.jsdelivr.net/gh/aDiesmos/livediesmos/bitlife/Build/BitLife.json", {
