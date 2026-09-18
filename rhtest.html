@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <!-- base href trick: relative paths resolve to the game's folder on jsDelivr (Cloudflare-only host) -->
+  <base href="https://testingcf.jsdelivr.net/gh/idkbrojustagitthing/whatver@main/ragdollhit/">
+
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Denton ISD</title>
+
+  <!-- Clean PokiSDK stub + Unity bridge: self-resolving no-ops so the game starts without ads/tracking -->
+  <script>
+    window.PokiSDK = {
+      init: function(){ return Promise.resolve(); },
+      initWithVideoHB: function(){ return Promise.resolve(); },
+      setDebug: function(){}, setLogging: function(){},
+      gameLoadingStart: function(){}, gameLoadingProgress: function(){}, gameLoadingFinished: function(){},
+      gameplayStart: function(){}, gameplayStop: function(){},
+      commercialBreak: function(){ return Promise.resolve(); },
+      rewardedBreak: function(){ return Promise.resolve(false); },
+      displayAd: function(e,n,t,o){ if(o)o(true); if(t)t(); },
+      destroyAd: function(){},
+      getLeaderboard: function(){ return Promise.resolve(); },
+      shareableURL: function(){ return Promise.reject(); },
+      getURLParam: function(){ return ""; },
+      getLanguage: function(){ return (navigator.language||"en").toLowerCase().split("-")[0]; },
+      isAdBlocked: function(){ return false; },
+      captureError: function(){}, customEvent: function(){}, gameInteractive: function(){},
+      happyTime: function(){}, logError: function(){}, muteAd: function(){}, roundEnd: function(){},
+      roundStart: function(){}, sendHighscore: function(){}, setPlayerAge: function(){},
+      setPlaytestCanvas: function(){}, enableEventTracking: function(){},
+      setDebugTouchOverlayController: function(){}
+    };
+    window.pokiReady = false;
+    window.pokiAdBlock = false;
+    window.initPokiBridge = function(n){
+      if(!window.unityGame){ setTimeout(function(){ window.initPokiBridge(n); }, 100); return; }
+      window.pokiBridge = n;
+      window.commercialBreak = function(){ PokiSDK.commercialBreak().then(function(){ window.unityGame.SendMessage(n,"commercialBreakCompleted"); }); };
+      window.rewardedBreak = function(){ var e; (e=PokiSDK).rewardedBreak.apply(e,arguments).then(function(r){ window.unityGame.SendMessage(n,"rewardedBreakCompleted",r.toString()); }); };
+      window.shareableURL = function(e){ PokiSDK.shareableURL(e).then(function(r){ window.unityGame.SendMessage(n,"shareableURLResolved",r); }).catch(function(){ window.unityGame.SendMessage(n,"shareableURLRejected"); }); };
+      window.unityGame.SendMessage(n, "ready");
+    };
+  </script>
+
+  <!-- Reassemble the >20MB Unity wasm + data from sub-20MB jsDelivr chunks, transparently to Unity's loader -->
+  <script>
+    (function(){
+      var PARTS = {
+        "1aedb70085073113e2b55ca86f37e2e8.wasm.unityweb": ["Build/parts/wasm.part0","Build/parts/wasm.part1"],
+        "3338c1fab0254118d94e7278963be9f4.data.unityweb": ["Build/parts/data.part0","Build/parts/data.part1"]
+      };
+      var _fetch = window.fetch.bind(window);
+      window.fetch = function(input, init){
+        var url = (typeof input === "string") ? input : (input && input.url) || "";
+        for (var name in PARTS){
+          if (url.indexOf(name) !== -1){
+            return Promise.all(PARTS[name].map(function(p){
+              return _fetch(new URL(p, document.baseURI).href).then(function(r){
+                if(!r.ok) throw new Error("chunk "+p+" -> "+r.status);
+                return r.arrayBuffer();
+              });
+            })).then(function(bufs){
+              var total = bufs.reduce(function(a,b){return a+b.byteLength;},0);
+              var merged = new Uint8Array(total), off=0;
+              bufs.forEach(function(b){ merged.set(new Uint8Array(b), off); off += b.byteLength; });
+              return new Response(merged, {status:200, headers:{"Content-Type":"application/octet-stream","Content-Length":String(total)}});
+            });
+          }
+        }
+        return _fetch(input, init);
+      };
+    })();
+  </script>
+
+  <style>
+    html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#7fa8d6; }
+    body { display:flex; align-items:center; justify-content:center; }
+    #unity-container { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+    #unity-canvas { width:960px; height:600px; max-width:100vw; max-height:100vh; background:#7fa8d6; }
+    #loadingBlock {
+      position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:#7fa8d6; z-index:1000; font-family:Arial, sans-serif; color:#fff;
+    }
+    #loadingBar { width:300px; max-width:70vw; height:16px; background:rgba(255,255,255,.35); border-radius:10px; overflow:hidden; }
+    #progress_fill { width:0%; height:100%; background:#fff; border-radius:10px; transition:width .15s; }
+    #progress_text { margin-top:12px; font-size:15px; }
+  </style>
+</head>
+<body>
+  <!-- corner tag: fixed top-left, rounded pill -->
+  <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 8px 16px; border-radius: 999px; font-family: Arial, sans-serif; font-size: 12px; z-index: 2000000000; border: 1px solid rgba(80,150,255,0.6);">Ragdoll Hit - Made by P:D</div>
+
+  <div id="unity-container">
+    <canvas id="unity-canvas" width="960" height="600" tabindex="-1"></canvas>
+  </div>
+
+  <div id="loadingBlock">
+    <div id="loadingBar"><div id="progress_fill"></div></div>
+    <div id="progress_text">Loading... 0%</div>
+  </div>
+
+  <script>
+    var buildUrl = "Build";
+    var config = {
+      dataUrl: buildUrl + "/3338c1fab0254118d94e7278963be9f4.data.unityweb",
+      frameworkUrl: buildUrl + "/ae7e3b4bdec4176bd62c24dfc2799d25.framework.js.unityweb",
+      codeUrl: buildUrl + "/1aedb70085073113e2b55ca86f37e2e8.wasm.unityweb",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "Ericetto",
+      productName: "Ragdoll Hit",
+      productVersion: "0.1"
+    };
+
+    var canvas = document.querySelector("#unity-canvas");
+    var loadingBlock = document.getElementById("loadingBlock");
+    var progressFill = document.getElementById("progress_fill");
+    var progressText = document.getElementById("progress_text");
+
+    var script = document.createElement("script");
+    script.src = buildUrl + "/d9d605cb1c18b4ed9fb179406f02ceab.loader.js";
+    script.onload = () => {
+      createUnityInstance(canvas, config, (progress) => {
+        var pct = Math.round(progress * 100);
+        progressFill.style.width = (100 * progress) + "%";
+        progressText.innerText = "Loading... " + pct + "%";
+      }).then((unityInstance) => {
+        window.unityInstance = unityInstance;
+        window.unityGame = unityInstance;
+        setTimeout(function(){ loadingBlock.style.display = "none"; window.focus(); }, 500);
+      }).catch((message) => { alert(message); });
+    };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
