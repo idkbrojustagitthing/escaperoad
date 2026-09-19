@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <!-- base href trick: relative paths resolve to the game's folder on jsDelivr (Cloudflare-only host) -->
+  <base href="https://testingcf.jsdelivr.net/gh/idkbrojustagitthing/whatver@main/blockblast/">
+
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Denton ISD</title>
+  <style>
+    html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#7fa8d6; }
+    body { display:flex; align-items:center; justify-content:center; }
+    #unity-container { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+    #unity-canvas { width:960px; height:600px; max-width:100vw; max-height:100vh; background:#7fa8d6; }
+    #loadingBlock {
+      position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:#7fa8d6; z-index:1000; font-family:Arial, sans-serif; color:#fff;
+    }
+    #loadingBar { width:300px; max-width:70vw; height:16px; background:rgba(255,255,255,.35); border-radius:10px; overflow:hidden; }
+    #progress_fill { width:0%; height:100%; background:#fff; border-radius:10px; transition:width .15s; }
+    #progress_text { margin-top:12px; font-size:15px; }
+  </style>
+</head>
+<body>
+  <!-- corner tag: fixed top-left, rounded pill -->
+  <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 8px 16px; border-radius: 999px; font-family: Arial, sans-serif; font-size: 12px; z-index: 2000000000; border: 1px solid rgba(80,150,255,0.6);">Block Blast - Made by Project: Daylight</div>
+
+  <div id="unity-container">
+    <canvas id="unity-canvas" width="960" height="600" tabindex="-1"></canvas>
+  </div>
+
+  <div id="loadingBlock">
+    <div id="loadingBar"><div id="progress_fill"></div></div>
+    <div id="progress_text">Loading... 0%</div>
+  </div>
+
+  <script>
+    var buildUrl = "Build";
+    var config = {
+      dataUrl: buildUrl + "/BlockBlast-build.data.unityweb",
+      frameworkUrl: buildUrl + "/BlockBlast-build.framework.js.unityweb",
+      codeUrl: buildUrl + "/BlockBlast-build.wasm.unityweb",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "TestCase",
+      productName: "Stick Blast",
+      productVersion: "1.0.2"
+    };
+
+    var canvas = document.querySelector("#unity-canvas");
+    var loadingBlock = document.getElementById("loadingBlock");
+    var progressFill = document.getElementById("progress_fill");
+    var progressText = document.getElementById("progress_text");
+
+    var script = document.createElement("script");
+    script.src = buildUrl + "/BlockBlast-build.loader.js";
+    script.onload = () => {
+      createUnityInstance(canvas, config, (progress) => {
+        var pct = Math.round(progress * 100);
+        progressFill.style.width = (100 * progress) + "%";
+        progressText.innerText = "Loading... " + pct + "%";
+      }).then((unityInstance) => {
+        window.unityInstance = unityInstance;
+        setTimeout(function(){ loadingBlock.style.display = "none"; window.focus(); }, 500);
+      }).catch((message) => { alert(message); });
+    };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
