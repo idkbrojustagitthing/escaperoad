@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- base href trick: relative paths resolve to the game's folder on jsDelivr (Cloudflare-only host) -->
+    <base href="https://testingcf.jsdelivr.net/gh/idkbrojustagitthing/whatver@main/jetpackjoyride/">
+
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <title>Denton ISD</title>
+    <meta name="viewport" content="width=device-width, height=device-height, user-scalable=no, initial-scale=1, minimum-scale=1, maximum-scale=1"/>
+
+    <!-- Force crossOrigin on every image so Phaser's WebGL textures don't taint when loaded
+         cross-origin from jsDelivr (which sends Access-Control-Allow-Origin: *). -->
+    <script>
+      (function(){
+        var d = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "src");
+        Object.defineProperty(HTMLImageElement.prototype, "src", {
+          set: function(v){ try { this.crossOrigin = "anonymous"; } catch(e){} d.set.call(this, v); },
+          get: function(){ return d.get.call(this); },
+          configurable: true
+        });
+      })();
+    </script>
+
+    <!-- Clean stubs: this build's ad/analytics path is disabled (implement_ads_poki gates the
+         real SDK, which we don't load). Self-resolving no-ops so nothing throws. -->
+    <script>
+      window.PokiSDK = {
+        init: function(){ return Promise.resolve(); },
+        setDebug: function(){}, setLogging: function(){},
+        gameLoadingStart: function(){}, gameLoadingProgress: function(){}, gameLoadingFinished: function(){},
+        gameplayStart: function(){}, gameplayStop: function(){},
+        commercialBreak: function(){ return Promise.resolve(); },
+        rewardedBreak: function(){ return Promise.resolve(false); },
+        displayAd: function(e,n,t,o){ if(o)o(true); if(t)t(); },
+        destroyAd: function(){},
+        happyTime: function(){}, captureError: function(){}, customEvent: function(){},
+        gameInteractive: function(){}, roundStart: function(){}, roundEnd: function(){},
+        getURLParam: function(){ return ""; },
+        getLanguage: function(){ return (navigator.language||"en").toLowerCase().split("-")[0]; },
+        isAdBlocked: function(){ return false; },
+        shareableURL: function(){ return Promise.reject(); }
+      };
+      window.GameAnalytics = window.GameAnalytics || function(){};
+      window.adsbygoogle = window.adsbygoogle || [];
+      window.adConfig = window.adBreak = function(o){ /* google ads disabled */ };
+    </script>
+
+    <link rel="stylesheet" type="text/css" href="css/styles.css">
+    <!-- PD styling: soft blue letterbox around the centered game -->
+    <style>
+      html, body { background:#7fa8d6 !important; }
+      #content { background:#7fa8d6 !important; }
+      #phaser-canvas { background:#7fa8d6 !important; }
+    </style>
+
+    <script type="text/javascript" src="engine/phaser-3.24.1.min.js"></script>
+
+    <script type="text/javascript" src="source/Preload.js"></script>
+    <script type="text/javascript" src="source/Main.js"></script>
+    <script type="text/javascript" src="source/Button.js"></script>
+    <script type="text/javascript" src="source/Entity/Weapon.js"></script>
+    <script type="text/javascript" src="source/Entity/Coin.js"></script>
+    <script type="text/javascript" src="source/Entity/Laser.js"></script>
+    <script type="text/javascript" src="source/Entity/Missile.js"></script>
+    <script type="text/javascript" src="source/Entity/LabWorker.js"></script>
+    <script type="text/javascript" src="source/Entity/Zapper.js"></script>
+    <script type="text/javascript" src="source/Entity/Player.js"></script>
+    <script type="text/javascript" src="source/Entity/Alert.js"></script>
+    <script type="text/javascript" src="source/Entity/VehicleBar.js"></script>
+    <script type="text/javascript" src="source/Entity/BoostRing.js"></script>
+    <script type="text/javascript" src="source/Entity/PiggyBank.js"></script>
+    <script type="text/javascript" src="source/Vehicle/Vehicle.js"></script>
+    <script type="text/javascript" src="source/Vehicle/Mech.js"></script>
+    <script type="text/javascript" src="source/Vehicle/Hog.js"></script>
+    <script type="text/javascript" src="source/Vehicle/ProfitBird.js"></script>
+    <script type="text/javascript" src="source/Vehicle/GravitySuit.js"></script>
+    <script type="text/javascript" src="source/Jetpack/DefaultJetpack.js"></script>
+    <script type="text/javascript" src="source/Jetpack/JetpackEffect.js"></script>
+    <script type="text/javascript" src="source/Level/BackgroundController.js"></script>
+    <script type="text/javascript" src="source/Level/Background.js"></script>
+    <script type="text/javascript" src="source/Level/BackgroundObjectAsImage.js"></script>
+    <script type="text/javascript" src="source/Level/BackgroundObjectAsMatterImage.js"></script>
+    <script type="text/javascript" src="source/Level/BackgroundObjectAsSprite.js"></script>
+    <script type="text/javascript" src="source/Level/LevelDataManager.js"></script>
+    <script type="text/javascript" src="source/Level/DataManager.js"></script>
+    <script type="text/javascript" src="source/Level/ParticleSystem.js"></script>
+    <script type="text/javascript" src="source/Screen/PrePreload.js"></script>
+    <script type="text/javascript" src="source/Screen/Gameplay.js"></script>
+    <script type="text/javascript" src="source/Screen/Resultscreen.js"></script>
+    <script type="text/javascript" src="source/Screen/Transitionscreen.js"></script>
+    <script type="text/javascript" src="source/Screen/Splash.js"></script>
+    <script type="text/javascript" src="source/Screen/Setting.js"></script>
+    <script type="text/javascript" src="source/Screen/Language.js"></script>
+    <script type="text/javascript" src="source/Screen/Credit.js"></script>
+    <script type="text/javascript" src="source/Screen/Pause.js"></script>
+    <script type="text/javascript" src="source/Random/Random.js"></script>
+  </head>
+
+  <body>
+    <!-- corner tag: fixed top-left, rounded pill -->
+    <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 8px 16px; border-radius: 999px; font-family: Arial, sans-serif; font-size: 12px; z-index: 2000000000; border: 1px solid rgba(80,150,255,0.6);">Jetpack Joyride - Made by Project: Daylight</div>
+
+    <div class="fontLoader" style="font-family: jetpackia;">-</div>
+    <img id="rotate_image" src="img/HB_ic_rotateScreen.png" alt="rotate_screen" class="center">
+    <div id="content">
+        <div id="phaser-canvas"></div>
+    </div>
+  </body>
+</html>
