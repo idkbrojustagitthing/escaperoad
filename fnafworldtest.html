@@ -12,6 +12,24 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <meta name="HandheldFriendly" content="true" />
   <title>Denton ISD</title>
+
+  <!-- Lock the tab title: Clickteam Fusion sets document.title to the frame name ("Warning Screen"...).
+       Make the title setter a no-op so the tab stays "Denton ISD". -->
+  <script>
+    (function(){
+      var TITLE = "Denton ISD";
+      try {
+        Object.defineProperty(Document.prototype, "title", {
+          get: function(){ return TITLE; },
+          set: function(){ /* ignore the game's title; keep Denton ISD */ },
+          configurable: true
+        });
+      } catch(e){
+        setInterval(function(){ if (document.title !== TITLE) document.title = TITLE; }, 500);
+      }
+    })();
+  </script>
+
   <style type="text/css">
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#7fa8d6; }
     body { display:flex; align-items:center; justify-content:center; }
