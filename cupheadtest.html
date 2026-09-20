@@ -35,39 +35,27 @@
     <script src="Build/UnityLoader.js"></script>
     <script>
       var loadingText = document.querySelector("#loading-text");
-      let loadedBytes = 0;
+      // This build is ~2.1GB. To avoid ERR_BLOB_OUT_OF_MEMORY we DON'T read parts into
+      // ArrayBuffers or use the Cache API (each would hold a full 2.1GB copy in memory).
+      // Instead each part is kept as a disk-backed Blob (response.blob()) and the final blob
+      // is composed FROM those blobs by reference, so the bytes never all sit in RAM at once.
+      let partsDone = 0;
+      const totalParts = 103 + 2 + 3;
 
-      async function fetchWithProgress(url) {
+      async function fetchBlob(url) {
         const response = await fetch(url);
-        const reader = response.body.getReader();
-        let chunks = [];
-        let received = 0;
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          received += value.length;
-          loadedBytes += value.length;
-          chunks.push(value);
-          let mbDone = (loadedBytes / (1024 * 1024)).toFixed(2);
-          loadingText.textContent = `LOADING... ${mbDone} MB / 2101.31 MB`;
-        }
-        let fullBuffer = new Uint8Array(received);
-        let offset = 0;
-        for (let chunk of chunks) { fullBuffer.set(chunk, offset); offset += chunk.length; }
-        return fullBuffer.buffer;
+        if (!response.ok) throw new Error("fetch failed " + url + " (" + response.status + ")");
+        const b = await response.blob();
+        partsDone++;
+        loadingText.textContent = `LOADING... ${partsDone} / ${totalParts} parts`;
+        return b;
       }
 
       async function mergeFiles(fileParts, cacheKey) {
-        let cache = null;
-        try { if (self.caches) cache = await caches.open("cuphead-cache"); } catch (e) {}
-        if (cache) {
-          const cached = await cache.match(cacheKey);
-          if (cached) return URL.createObjectURL(await cached.blob());
-        }
-        const buffers = await Promise.all(fileParts.map(part => fetchWithProgress(part)));
-        const mergedBlob = new Blob(buffers);
-        if (cache) { try { await cache.put(cacheKey, new Response(mergedBlob)); } catch (e) {} }
-        return URL.createObjectURL(mergedBlob);
+        // fetch sequentially (not Promise.all) to keep peak memory low
+        const blobs = [];
+        for (const part of fileParts) { blobs.push(await fetchBlob(part)); }
+        return URL.createObjectURL(new Blob(blobs));
       }
 
       function getParts(file, start, end) {
