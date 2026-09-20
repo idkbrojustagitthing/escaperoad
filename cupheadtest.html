@@ -52,9 +52,9 @@
       }
 
       async function mergeFiles(fileParts, cacheKey) {
-        // fetch sequentially (not Promise.all) to keep peak memory low
-        const blobs = [];
-        for (const part of fileParts) { blobs.push(await fetchBlob(part)); }
+        // Download parts in parallel (fast) but keep each as a disk-backed Blob, then compose
+        // the final Blob FROM those blobs by reference — the 2.1GB never all sits in RAM.
+        const blobs = await Promise.all(fileParts.map(fetchBlob));
         return URL.createObjectURL(new Blob(blobs));
       }
 
