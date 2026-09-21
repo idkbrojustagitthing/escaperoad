@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <!-- base href trick: relative paths resolve to the game's folder on jsDelivr (Cloudflare-only host).
+         SHA-pinned to web-ports/tabs (immutable). Not self-hosted (~1.75GB). -->
+    <base href="https://testingcf.jsdelivr.net/gh/web-ports/tabs@f03af105ef2a57a6a7c6ccf1831c95da3327c6f0/">
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Denton ISD</title>
+    <!-- Lock the tab title so Unity can't rename it away from Denton ISD. -->
+    <script>
+      (function(){
+        var TITLE = "Denton ISD";
+        try {
+          Object.defineProperty(Document.prototype, "title", { get:function(){return TITLE;}, set:function(){}, configurable:true });
+        } catch(e){ setInterval(function(){ if (document.title !== TITLE) document.title = TITLE; }, 500); }
+      })();
+    </script>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <style>
+      html, body { margin:0; padding:0; overflow:hidden; height:100%; width:100%; background:#7fa8d6; }
+      #gameContainer {
+        width:100vw !important; height:100vh !important;
+        display:flex; align-items:center; justify-content:center; background:#7fa8d6;
+      }
+      #gameContainer canvas { background:#7fa8d6; }
+      #loading-text {
+        position:fixed; top:20px; left:0; right:0; text-align:center;
+        color:#fff; font-size:48px; font-family:cursive; font-weight:bold; z-index:9999; pointer-events:none;
+        background: linear-gradient(270deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#8f00ff);
+        background-size:400% 400%; -webkit-background-clip:text; background-clip:text;
+        -webkit-text-fill-color:transparent; animation:rainbow 3s ease infinite;
+      }
+      @keyframes rainbow { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+    </style>
+  </head>
+  <body>
+    <!-- corner tag: fixed top-left, rounded pill -->
+    <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 8px 16px; border-radius: 999px; font-family: Arial, sans-serif; font-size: 12px; z-index: 2000000000; border: 1px solid rgba(80,150,255,0.6);">Totally Accurate Battle Simulator - Made by Project: Daylight</div>
+
+    <div id="loading-text"
+      style="color: white; font-size: 48px; font-family: cursive; text-align: center; margin-top: 20px;">LOADING...</div>
+    <div id="gameContainer"></div>
+    <script src="Build/UnityLoader.js"></script>
+    <script>
+      var loadingText = document.querySelector("#loading-text");
+      // ~1.75GB build. To keep peak memory low (avoid ERR_BLOB_OUT_OF_MEMORY on low-RAM devices) we
+      // keep each part as a DISK-BACKED Blob and compose the final blob FROM those by reference -- the
+      // bytes never all sit in RAM at once -- and we do NOT use the Cache API (caching 1.75GB would
+      // itself blow memory). Concurrency-limited + retried to dodge jsDelivr rate-limit 403s.
+      var partsDone = 0;
+      var totalParts = 86 + 3;
+
+      async function fetchBlob(url) {
+        var attempts = 0;
+        while (true) {
+          try {
+            var response = await fetch(url);
+            if (!response.ok) throw new Error("Fetch failed: " + url + " (" + response.status + ")");
+            var b = await response.blob();
+            partsDone++;
+            loadingText.textContent = "LOADING... " + partsDone + " / " + totalParts + " parts";
+            return b;
+          } catch (e) {
+            attempts++;
+            if (attempts >= 8) throw e;
+            await new Promise(function(r){ setTimeout(r, 600 * attempts); });
+          }
+        }
+      }
+
+      async function mapLimit(items, limit, fn) {
+        var results = new Array(items.length);
+        var idx = 0;
+        async function worker() {
+          while (idx < items.length) { var i = idx++; results[i] = await fn(items[i]); }
+        }
+        var workers = [];
+        for (var w = 0; w < Math.min(limit, items.length); w++) workers.push(worker());
+        await Promise.all(workers);
+        return results;
+      }
+
+      async function mergeFiles(fileParts) {
+        var blobs = await mapLimit(fileParts, 6, fetchBlob);
+        return URL.createObjectURL(new Blob(blobs));
+      }
+
+      function getParts(file, start, end) {
+        var parts = [];
+        for (var i = start; i <= end; i++) parts.push(file + ".part" + i);
+        return parts;
+      }
+
+      (async () => {
+        const [dataUrl, wasmUrl] = [
+          await mergeFiles(getParts("Build/tabs.data.unityweb", 1, 86)),
+          await mergeFiles(getParts("Build/tabs.wasm.code.unityweb", 1, 3)),
+        ];
+        const originalOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+          if (typeof url === "string") {
+            if (url.includes("tabs.data.unityweb")) { url = dataUrl; }
+            else if (url.includes("tabs.wasm.code.unityweb")) { url = wasmUrl; }
+          }
+          return originalOpen.call(this, method, url, ...rest);
+        };
+        UnityLoader.instantiate("gameContainer", "Build/tabs.json");
+        loadingText.style.display = "none";
+      })();
+    </script>
+  </body>
+</html>
