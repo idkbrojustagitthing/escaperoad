@@ -281,13 +281,39 @@
 			var partsDone = 0;
 			var totalParts = 28;
 
+			// Retry transient failures (jsDelivr rate-limits bursts of parallel requests with 403/429).
 			async function fetchBlob(url) {
-				var response = await originalFetch(url);
-				if (!response.ok) throw new Error("Fetch failed: " + url + " (" + response.status + ")");
-				var b = await response.blob();
-				partsDone++;
-				loadingText.textContent = "LOADING... " + partsDone + " / " + totalParts + " parts";
-				return b;
+				var attempts = 0;
+				while (true) {
+					try {
+						var response = await originalFetch(url);
+						if (!response.ok) throw new Error("Fetch failed: " + url + " (" + response.status + ")");
+						var b = await response.blob();
+						partsDone++;
+						loadingText.textContent = "LOADING... " + partsDone + " / " + totalParts + " parts";
+						return b;
+					} catch (e) {
+						attempts++;
+						if (attempts >= 8) throw e;
+						await new Promise(function(r){ setTimeout(r, 600 * attempts); }); // backoff
+					}
+				}
+			}
+
+			// Limit concurrency to avoid tripping jsDelivr/Cloudflare rate limits on 28 parallel fetches.
+			async function mapLimit(items, limit, fn) {
+				var results = new Array(items.length);
+				var idx = 0;
+				async function worker() {
+					while (idx < items.length) {
+						var i = idx++;
+						results[i] = await fn(items[i]);
+					}
+				}
+				var workers = [];
+				for (var w = 0; w < Math.min(limit, items.length); w++) workers.push(worker());
+				await Promise.all(workers);
+				return results;
 			}
 
 			async function mergeFiles(fileParts, cacheKey, minBytes) {
@@ -301,7 +327,7 @@
 						try { await cache.delete(cacheKey); } catch (e) {}
 					}
 				}
-				var blobs = await Promise.all(fileParts.map(fetchBlob));
+				var blobs = await mapLimit(fileParts, 6, fetchBlob);
 				var merged = new Blob(blobs);
 				if (cache && (!minBytes || merged.size >= minBytes)) {
 					try { await cache.put(cacheKey, new Response(merged)); } catch (e) {}
