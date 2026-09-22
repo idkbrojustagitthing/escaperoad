@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- base href trick: relative paths resolve to the game's folder on jsDelivr (Cloudflare-only host).
+         Self-hosted in whatver/buckshotroulette/ (genizy/web-port is too big for jsDelivr -> 403). -->
+    <base href="https://testingcf.jsdelivr.net/gh/idkbrojustagitthing/whatver@main/buckshotroulette/">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+    <title>Denton ISD</title>
+    <!-- Lock the tab title so Godot can't rename it away from Denton ISD. -->
+    <script>
+      (function(){
+        var TITLE = "Denton ISD";
+        try { Object.defineProperty(Document.prototype, "title", { get:function(){return TITLE;}, set:function(){}, configurable:true }); }
+        catch(e){ setInterval(function(){ if (document.title !== TITLE) document.title = TITLE; }, 500); }
+      })();
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <link id="-gd-engine-icon" rel="icon" type="image/png" href="buckshot-roulette.icon.png" />
+    <style>
+      html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#7fa8d6; }
+      body { display:flex; align-items:center; justify-content:center; }
+      #canvas { display:block; background:#7fa8d6; }
+      #loading-text {
+        position:fixed; top:20px; left:0; right:0; text-align:center;
+        color:#fff; font-size:48px; font-family:cursive; font-weight:bold; z-index:9999; pointer-events:none;
+        background: linear-gradient(270deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#8f00ff);
+        background-size:400% 400%; -webkit-background-clip:text; background-clip:text;
+        -webkit-text-fill-color:transparent; animation:rainbow 3s ease infinite;
+      }
+      @keyframes rainbow { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+    </style>
+</head>
+
+<body>
+    <!-- corner tag: fixed top-left, rounded pill -->
+    <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 8px 16px; border-radius: 999px; font-family: Arial, sans-serif; font-size: 12px; z-index: 2000000000; border: 1px solid rgba(80,150,255,0.6);">Buckshot Roulette - Made by Project: Daylight</div>
+
+    <div id="loading-text" style="color: white; font-family: cursive; font-size: 48px; text-align: center; margin-top: 20px;">LOADING...</div>
+    <canvas id="canvas"> Your browser does not support the canvas tag. </canvas>
+    <div id="status">
+        <img id="status-splash" class="show-image--true fullsize--true use-filter--true" src="buckshot-roulette.png" alt="">
+        <progress id="status-progress"></progress>
+        <div id="status-notice"></div>
+    </div>
+
+    <script src="buckshot-roulette.js"></script>
+    <script>
+        const GODOT_CONFIG = {
+            "args": [],
+            "canvasResizePolicy": 2,
+            "ensureCrossOriginIsolationHeaders": false,
+            "executable": "buckshot-roulette",
+            "experimentalVK": false,
+            "fileSizes": { "buckshot-roulette.pck": 344705792, "buckshot-roulette.wasm": 43444261 },
+            "focusCanvas": true,
+            "gdextensionLibs": []
+        };
+        const GODOT_THREADS_ENABLED = false;
+        const engine = new Engine(GODOT_CONFIG);
+
+        function run() {
+            const loadingText = document.getElementById('loading-text');
+            const statusOverlay = document.getElementById('status');
+            const statusProgress = document.getElementById('status-progress');
+            const statusNotice = document.getElementById('status-notice');
+            if (loadingText) loadingText.remove();
+            let initializing = true;
+            let statusMode = '';
+            function setStatusMode(mode) {
+                if (statusMode === mode || !initializing) return;
+                if (mode === 'hidden') { statusOverlay.remove(); initializing = false; return; }
+                statusOverlay.style.visibility = 'visible';
+                statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+                statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+                statusMode = mode;
+            }
+            function setStatusNotice(text) {
+                while (statusNotice.lastChild) statusNotice.removeChild(statusNotice.lastChild);
+                text.split('\n').forEach((line) => { statusNotice.appendChild(document.createTextNode(line)); statusNotice.appendChild(document.createElement('br')); });
+            }
+            function displayFailureNotice(err) {
+                console.error(err);
+                setStatusNotice((err instanceof Error) ? err.message : (typeof err === 'string' ? err : 'An unknown error occurred.'));
+                setStatusMode('notice'); initializing = false;
+            }
+            const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });
+            if (missing.length !== 0) {
+                displayFailureNotice('Error\nThe following features required to run Godot projects on the Web are missing:\n' + missing.join('\n'));
+            } else {
+                setStatusMode('progress');
+                engine.startGame({
+                    'onProgress': function (current, total) {
+                        if (current > 0 && total > 0) { statusProgress.value = current; statusProgress.max = total; }
+                        else { statusProgress.removeAttribute('value'); statusProgress.removeAttribute('max'); }
+                    },
+                }).then(() => { setStatusMode('hidden'); }, displayFailureNotice);
+            }
+        }
+        window.godotRunStart = run;
+    </script>
+
+    <!-- Hardened part-merge (disk-backed blobs, concurrency-limited + retried, 404-reject) replacing
+         the upstream main.js; redirects the pck/wasm fetch to the merged blobs, then boots Godot. -->
+    <script>
+      (function(){
+        var loadingText = document.getElementById("loading-text");
+        var originalFetch = window.fetch;
+        var partsDone = 0;
+        var totalParts = 17 + 3;
+
+        async function fetchBlob(url) {
+          var attempts = 0;
+          while (true) {
+            try {
+              var response = await originalFetch(url);
+              if (!response.ok) throw new Error("Fetch failed: " + url + " (" + response.status + ")");
+              var b = await response.blob();
+              partsDone++;
+              if (loadingText) loadingText.textContent = "LOADING... " + partsDone + " / " + totalParts + " parts";
+              return b;
+            } catch (e) {
+              attempts++;
+              if (attempts >= 8) throw e;
+              await new Promise(function(r){ setTimeout(r, 600 * attempts); });
+            }
+          }
+        }
+        async function mapLimit(items, limit, fn) {
+          var results = new Array(items.length); var idx = 0;
+          async function worker(){ while (idx < items.length){ var i = idx++; results[i] = await fn(items[i]); } }
+          var ws = []; for (var k = 0; k < Math.min(limit, items.length); k++) ws.push(worker());
+          await Promise.all(ws); return results;
+        }
+        async function mergeFiles(parts){ var bl = await mapLimit(parts, 6, fetchBlob); return URL.createObjectURL(new Blob(bl)); }
+        function getParts(file, start, end){ var p = []; for (var i = start; i <= end; i++) p.push(file + ".part" + i); return p; }
+
+        Promise.all([
+          mergeFiles(getParts("buckshot-roulette.pck", 1, 17)),
+          mergeFiles(getParts("buckshot-roulette.wasm", 1, 3))
+        ]).then(function(urls){
+          var pckUrl = urls[0], wasmUrl = urls[1];
+          window.fetch = function(url){
+            var rest = Array.prototype.slice.call(arguments, 1);
+            if (typeof url === "string" && url.endsWith("buckshot-roulette.pck")) return originalFetch.apply(this, [pckUrl].concat(rest));
+            if (typeof url === "string" && url.endsWith("buckshot-roulette.wasm")) return originalFetch.apply(this, [wasmUrl].concat(rest));
+            return originalFetch.apply(this, arguments);
+          };
+          window.godotRunStart();
+        });
+      })();
+    </script>
+</body>
+</html>
