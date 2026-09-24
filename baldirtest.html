@@ -68,7 +68,12 @@
       (async () => {
         var dataUrl = await mergeFiles(getParts("Build/WebGL.data", 3));
         var wasmUrl = await mergeFiles(getParts("Build/WebGL.wasm", 3), "application/wasm");
-        createUnityInstance(document.querySelector("#unity-canvas"), {
+        // Give the canvas an explicit non-zero drawing buffer BEFORE Unity inits, so Screen.width
+        // isn't 0 on the first frame (this Baldi build builds its render targets at startup).
+        var cv = document.querySelector("#unity-canvas");
+        cv.width = window.innerWidth || 1280;
+        cv.height = window.innerHeight || 720;
+        createUnityInstance(cv, {
           dataUrl: dataUrl,
           frameworkUrl: "Build/WebGL.framework.js",
           codeUrl: wasmUrl,
@@ -76,8 +81,14 @@
           companyName: "Basically Games",
           productName: "Baldi's Basics Classic Remastered",
           productVersion: "1.1",
-        }).then(function(){
+        }).then(function(unityInstance){
           if (loadingText) loadingText.remove();
+          // Nudge Unity to rebuild render targets at the real size (fixes 0-width render textures).
+          var nudges = 0;
+          var t = setInterval(function(){
+            window.dispatchEvent(new Event('resize'));
+            if (++nudges >= 5) clearInterval(t);
+          }, 700);
         }).catch(function(message){ alert(message); });
       })();
     </script>
