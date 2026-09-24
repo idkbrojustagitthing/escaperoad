@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <!-- base href trick: relative paths resolve to the game's folder on jsDelivr (Cloudflare-only host).
+         Self-hosted in whatver/tattletail/ (genizy/web-port too big for jsDelivr -> 403). -->
+    <base href="https://testingcf.jsdelivr.net/gh/idkbrojustagitthing/whatver@main/tattletail/">
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Denton ISD</title>
+    <!-- Lock the tab title so Unity can't rename it away from Denton ISD. -->
+    <script>
+      (function(){
+        var T="Denton ISD";
+        try { Object.defineProperty(Document.prototype,"title",{get:function(){return T;},set:function(){},configurable:true}); }
+        catch(e){ setInterval(function(){ if(document.title!==T) document.title=T; },500); }
+      })();
+    </script>
+    <script src="Build/UnityLoader.js"></script>
+    <style>
+      html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#7fa8d6; }
+      #gameContainer {
+        position:fixed; top:0; left:0; width:100vw; height:100vh; background:#7fa8d6;
+        display:flex; align-items:center; justify-content:center;
+      }
+      #gameContainer canvas { width:100%; height:100%; display:block; background:#7fa8d6; }
+      #loading-text {
+        position:fixed; top:20px; left:0; right:0; text-align:center;
+        color:#fff; font-size:48px; font-family:cursive; font-weight:bold; z-index:9999; pointer-events:none;
+        background: linear-gradient(270deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#8f00ff);
+        background-size:400% 400%; -webkit-background-clip:text; background-clip:text;
+        -webkit-text-fill-color:transparent; animation:rainbow 3s ease infinite;
+      }
+      @keyframes rainbow { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+    </style>
+  </head>
+
+  <body>
+    <!-- corner tag: fixed top-left, rounded pill -->
+    <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 8px 16px; border-radius: 999px; font-family: Arial, sans-serif; font-size: 12px; z-index: 2000000000; border: 1px solid rgba(80,150,255,0.6);">Tattletail - Made by Project: Daylight</div>
+
+    <div id="loading-text" style="color: white; font-size: 48px; font-family: cursive; text-align: center; margin-top: 20px;">LOADING...</div>
+    <div id="gameContainer" hidden></div>
+    <script>
+      const loadingText = document.querySelector("#loading-text");
+      let partsDone = 0;
+      const totalParts = 4;
+
+      async function fetchBlob(url) {
+        let attempts = 0;
+        while (true) {
+          try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Fetch failed: " + url + " (" + response.status + ")");
+            const b = await response.blob();
+            partsDone++;
+            if (loadingText) loadingText.textContent = "LOADING... " + partsDone + " / " + totalParts + " parts";
+            return b;
+          } catch (e) {
+            attempts++;
+            if (attempts >= 8) throw e;
+            await new Promise((r) => setTimeout(r, 600 * attempts));
+          }
+        }
+      }
+      async function mapLimit(items, limit, fn) {
+        const results = new Array(items.length); let idx = 0;
+        async function worker(){ while (idx < items.length){ const i = idx++; results[i] = await fn(items[i]); } }
+        const ws = []; for (let k = 0; k < Math.min(limit, items.length); k++) ws.push(worker());
+        await Promise.all(ws); return results;
+      }
+      async function mergeFiles(parts) {
+        const bl = await mapLimit(parts, 6, fetchBlob);
+        return URL.createObjectURL(new Blob(bl));
+      }
+      function getParts(file, count) {
+        let parts = [];
+        for (let i = 1; i <= count; i++) parts.push(file + ".part" + i);
+        return parts;
+      }
+      function resizeUnityContainer() {
+        const c = document.getElementById("gameContainer");
+        c.style.width = window.innerWidth + "px";
+        c.style.height = window.innerHeight + "px";
+      }
+
+      (async () => {
+        const dataUrl = await mergeFiles(getParts("Build/WebGL.data.unityweb", 4));
+        const json = {
+          companyName: "Waygetter Electronics",
+          productName: "Tattletail",
+          dataUrl: dataUrl,
+          wasmCodeUrl: "WebGL.wasm.code.unityweb",
+          wasmFrameworkUrl: "WebGL.wasm.framework.unityweb",
+          TOTAL_MEMORY: 251658240,
+          graphicsAPI: ["WebGL 2.0", "WebGL 1.0"],
+          webglContextAttributes: { preserveDrawingBuffer: false },
+          splashScreenStyle: "Dark",
+          backgroundColor: "#000000",
+        };
+        const blobUrl = URL.createObjectURL(new Blob([JSON.stringify(json)], { type: "application/json" }));
+        document.querySelector("#gameContainer").hidden = false;
+        UnityLoader.instantiate("gameContainer", json, {
+          url: blobUrl,
+          Module: {
+            onRuntimeInitialized: function () {
+              resizeUnityContainer();
+              window.onresize = function () { resizeUnityContainer(); };
+              const lt = document.querySelector("#loading-text");
+              if (lt) lt.remove();
+            },
+          },
+        });
+      })();
+    </script>
+  </body>
+</html>
