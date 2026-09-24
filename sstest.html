@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <!-- base href trick: relative paths resolve to the game's folder on jsDelivr (Cloudflare-only host).
+         Self-hosted in whatver/speedstars/ (genizy/web-port too big for jsDelivr; data/wasm split <20MB). -->
+    <base href="https://testingcf.jsdelivr.net/gh/idkbrojustagitthing/whatver@main/speedstars/">
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Denton ISD</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <style>
+      html, body { margin:0; padding:0; overflow:hidden; height:100%; width:100%; background:#7fa8d6; }
+      #unity-container {
+        width:100%; height:100%; position:fixed; top:0; left:0; background:#7fa8d6;
+        display:flex; align-items:center; justify-content:center;
+      }
+      #unity-canvas { background:#7fa8d6; max-width:100vw; max-height:100vh; }
+      #loading-text {
+        position:fixed; top:20px; left:0; right:0; text-align:center;
+        color:#fff; font-size:48px; font-family:cursive; font-weight:bold; z-index:9999; pointer-events:none;
+        background: linear-gradient(270deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#8f00ff);
+        background-size:400% 400%; -webkit-background-clip:text; background-clip:text;
+        -webkit-text-fill-color:transparent; animation:rainbow 3s ease infinite;
+      }
+      @keyframes rainbow { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+    </style>
+  </head>
+  <body>
+    <!-- corner tag: fixed top-left, rounded pill -->
+    <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 8px 16px; border-radius: 999px; font-family: Arial, sans-serif; font-size: 12px; z-index: 2000000000; border: 1px solid rgba(80,150,255,0.6);">Speed Stars - Made by Project: Daylight</div>
+
+    <div id="loading-text">LOADING...</div>
+    <div id="unity-container" class="unity-desktop">
+      <canvas id="unity-canvas" width=960 height=600></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty"><div id="unity-progress-bar-full"></div></div>
+      </div>
+      <div id="unity-warning"> </div>
+    </div>
+    <script>
+      var loadingText = document.querySelector("#loading-text");
+      var partsDone = 0;
+      var totalParts = 5 + 3;
+
+      async function fetchBlob(url) {
+        var attempts = 0;
+        while (true) {
+          try {
+            var response = await fetch(url);
+            if (!response.ok) throw new Error("Fetch failed: " + url + " (" + response.status + ")");
+            var b = await response.blob();
+            partsDone++;
+            if (loadingText) loadingText.textContent = "LOADING... " + partsDone + " / " + totalParts + " parts";
+            return b;
+          } catch (e) {
+            attempts++;
+            if (attempts >= 8) throw e;
+            await new Promise(function(r){ setTimeout(r, 600 * attempts); });
+          }
+        }
+      }
+      async function mapLimit(items, limit, fn) {
+        var results = new Array(items.length); var idx = 0;
+        async function worker(){ while (idx < items.length){ var i = idx++; results[i] = await fn(items[i]); } }
+        var ws = []; for (var k = 0; k < Math.min(limit, items.length); k++) ws.push(worker());
+        await Promise.all(ws); return results;
+      }
+      async function mergeFiles(parts, mime) {
+        var bl = await mapLimit(parts, 6, fetchBlob);
+        return URL.createObjectURL(new Blob(bl, mime ? { type: mime } : undefined));
+      }
+      function getParts(file, start, end) {
+        var p = []; for (var i = start; i <= end; i++) p.push(file + ".part" + i); return p;
+      }
+
+      (async () => {
+        var dataUrl = await mergeFiles(getParts("Build/webgl.data", 1, 5));
+        var wasmUrl = await mergeFiles(getParts("Build/webgl.wasm", 1, 3), "application/wasm");
+
+        var container = document.querySelector("#unity-container");
+        var canvas = document.querySelector("#unity-canvas");
+        var loadingBar = document.querySelector("#unity-loading-bar");
+        var progressBarFull = document.querySelector("#unity-progress-bar-full");
+
+        function unityShowBanner(msg, type) {}
+
+        var config = {
+          dataUrl: dataUrl,
+          frameworkUrl: "Build/webgl.framework.js",
+          codeUrl: wasmUrl,
+          streamingAssetsUrl: "StreamingAssets",
+          companyName: "Luke Doukakis",
+          productName: "Speed Stars",
+          productVersion: "1.0",
+          showBanner: unityShowBanner,
+        };
+
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+          var meta = document.createElement('meta');
+          meta.name = 'viewport';
+          meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+          document.getElementsByTagName('head')[0].appendChild(meta);
+          container.className = "unity-mobile";
+          canvas.style.width = window.innerWidth + 'px';
+          canvas.style.height = window.innerHeight + 'px';
+        } else {
+          function resizeCanvas() {
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            canvas.style.width = window.innerWidth + "px"; canvas.style.height = window.innerHeight + "px";
+          }
+          resizeCanvas();
+          window.addEventListener('resize', resizeCanvas);
+        }
+
+        loadingBar.style.display = "block";
+        var script = document.createElement("script");
+        script.src = "Build/webgl.loader.js";
+        script.onload = () => {
+          createUnityInstance(canvas, config, (progress) => {
+            progressBarFull.style.width = 100 * progress + "%";
+          }).then((unityInstance) => {
+            loadingBar.style.display = "none";
+            if (loadingText) loadingText.remove();
+          }).catch((message) => { alert(message); });
+        };
+        document.body.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>
