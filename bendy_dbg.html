@@ -4,6 +4,20 @@
     <!-- base href trick: relative paths resolve to the game's folder on jsDelivr (Cloudflare-only host).
          SHA-pinned to web-ports/bendy-and-the-ink-machine (immutable). Not self-hosted (~686MB). -->
     <base href="https://testingcf.jsdelivr.net/gh/web-ports/bendy-and-the-ink-machine@92ccd21765d798550f3042e3dfe1bd0fac76d6f6/">
+    <script>
+      // Chromebook fix: never let a game/engine error pop a "This page says..." dialog, and drop the
+      // Content-Type header so analytics XHRs don't hit a CORS preflight that jsDelivr rejects.
+      window.alert = function(m){ try{ console.log("[alert suppressed]", m); }catch(e){} };
+      window.confirm = function(){ return true; };
+      window.prompt = function(){ return null; };
+      (function(){
+        var _sh = XMLHttpRequest.prototype.setRequestHeader;
+        XMLHttpRequest.prototype.setRequestHeader = function(name, value){
+          if (String(name).toLowerCase() === "content-type") return;
+          return _sh.apply(this, arguments);
+        };
+      })();
+    </script>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -40,53 +54,65 @@
     </div>
     <script>
       var loadingText = document.querySelector("#loading-text");
-      let loadedBytes = 0;
+      var partsDone = 0;
+      var totalParts = 33 + 2;
 
-      async function fetchWithProgress(url) {
-        const response = await fetch(url);
-        const reader = response.body.getReader();
-        let chunks = [];
-        let received = 0;
+      // Disk-backed, concurrency-limited, retried part fetch -> avoids OOM on low-RAM Chromebooks
+      // (the ~660MB data never sits in RAM as ArrayBuffers) and rides out jsDelivr rate-limit 403s.
+      async function fetchBlob(url) {
+        var attempts = 0;
         while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          received += value.length;
-          loadedBytes += value.length;
-          chunks.push(value);
-          let mbDone = (loadedBytes / (1024 * 1024)).toFixed(2);
-          loadingText.textContent = `LOADING... ${mbDone} MB / 684.84 MB`;
+          try {
+            var response = await fetch(url);
+            if (!response.ok) throw new Error("Fetch failed: " + url + " (" + response.status + ")");
+            var b = await response.blob();
+            partsDone++;
+            if (loadingText) loadingText.textContent = "LOADING... " + partsDone + " / " + totalParts + " parts";
+            return b;
+          } catch (e) {
+            attempts++;
+            if (attempts >= 8) throw e;
+            await new Promise(function(r){ setTimeout(r, 600 * attempts); });
+          }
         }
-        let fullBuffer = new Uint8Array(received);
-        let offset = 0;
-        for (let chunk of chunks) { fullBuffer.set(chunk, offset); offset += chunk.length; }
-        return fullBuffer.buffer;
       }
-
-      async function mergeFiles(fileParts, cacheKey, mime) {
-        let cache = null;
-        try { if (self.caches) cache = await caches.open("batim-cache"); } catch (e) {}
-        const blobOpts = mime ? { type: mime } : undefined;
+      async function mapLimit(items, limit, fn) {
+        var results = new Array(items.length); var idx = 0;
+        async function worker(){ while (idx < items.length){ var i = idx++; results[i] = await fn(items[i]); } }
+        var ws = []; for (var k = 0; k < Math.min(limit, items.length); k++) ws.push(worker());
+        await Promise.all(ws); return results;
+      }
+      async function mergeFiles(fileParts, cacheKey, mime, minBytes) {
+        // Cache name bumped (batim-cache-v2) to bypass any partial/garbage cache from a failed load.
+        var cache = null;
+        try { if (self.caches) cache = await caches.open("batim-cache-v2"); } catch (e) {}
+        var blobOpts = mime ? { type: mime } : undefined;
         if (cache) {
-          const cached = await cache.match(cacheKey);
-          if (cached) { const b = await cached.blob(); return URL.createObjectURL(mime ? new Blob([b], blobOpts) : b); }
+          var cached = await cache.match(cacheKey);
+          if (cached) {
+            var cb = await cached.blob();
+            // Self-heal: only trust a cache that's the full expected size.
+            if (!minBytes || cb.size >= minBytes) return URL.createObjectURL(mime ? new Blob([cb], blobOpts) : cb);
+            try { await cache.delete(cacheKey); } catch (e) {}
+          }
         }
-        const buffers = await Promise.all(fileParts.map(part => fetchWithProgress(part)));
-        const mergedBlob = new Blob(buffers, blobOpts);
-        if (cache) { try { await cache.put(cacheKey, new Response(mergedBlob)); } catch (e) {} }
-        return URL.createObjectURL(mergedBlob);
+        var blobs = await mapLimit(fileParts, 6, fetchBlob);
+        var merged = new Blob(blobs, blobOpts);
+        if (cache && (!minBytes || merged.size >= minBytes)) {
+          try { await cache.put(cacheKey, new Response(merged)); } catch (e) {}
+        }
+        return URL.createObjectURL(merged);
       }
 
       function getParts(file, start, end) {
-        let parts = [];
-        for (let i = start; i <= end; i++) parts.push(file + ".part" + i);
+        var parts = [];
+        for (var i = start; i <= end; i++) parts.push(file + ".part" + i);
         return parts;
       }
 
       (async () => {
-        const [dataUrl, wasmUrl] = await Promise.all([
-          mergeFiles(getParts("Build/BATIMFullPort.data", 1, 33), "BATIMFullPort.data"),
-          mergeFiles(getParts("Build/BATIMFullPort.wasm", 1, 2), "BATIMFullPort.wasm", "application/wasm"),
-        ]);
+        const dataUrl = await mergeFiles(getParts("Build/BATIMFullPort.data", 1, 33), "BATIMFullPort.data", null, 600 * 1024 * 1024);
+        const wasmUrl = await mergeFiles(getParts("Build/BATIMFullPort.wasm", 1, 2), "BATIMFullPort.wasm", "application/wasm", 25 * 1024 * 1024);
 
         var canvas = document.querySelector("#unity-canvas");
         var loadingBar = document.querySelector("#unity-loading-bar");
@@ -125,7 +151,7 @@
           }).then((unityInstance) => {
             loadingBar.style.display = "none";
             if (loadingText) loadingText.remove();
-          }).catch((message) => { alert(message); });
+          }).catch((message) => { console.log("[unity load error]", message); });
         };
         document.body.appendChild(script);
       })();
