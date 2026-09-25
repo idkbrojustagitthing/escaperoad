@@ -3,6 +3,21 @@
   <head>
     <!-- base href trick: all relative paths below resolve to the game's folder on jsDelivr (Cloudflare-only host) -->
     <base href="https://testingcf.jsdelivr.net/gh/idkbrojustagitthing/whatver@main/snowrider/">
+    <script>
+      // Chromebook fix: prevent ANY browser dialog ("This page says..." dropdown) from a game/engine
+      // error, and drop the Content-Type header so Unity/GameMaker analytics XHRs don't hit a CORS
+      // preflight that jsDelivr rejects (which was surfacing as a repeating error dialog).
+      window.alert = function(m){ try{ console.log("[alert suppressed]", m); }catch(e){} };
+      window.confirm = function(){ return true; };
+      window.prompt = function(){ return null; };
+      (function(){
+        var _sh = XMLHttpRequest.prototype.setRequestHeader;
+        XMLHttpRequest.prototype.setRequestHeader = function(name, value){
+          if (String(name).toLowerCase() === "content-type") return;
+          return _sh.apply(this, arguments);
+        };
+      })();
+    </script>
 
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
