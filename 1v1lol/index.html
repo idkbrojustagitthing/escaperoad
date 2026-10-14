@@ -13,19 +13,25 @@
       for(var a=0;;a++){ try{ var r=await _fetch(u); if(!r.ok) throw new Error(r.status+" "+u); return await r.blob(); }
         catch(e){ if(a>=8) throw e; await new Promise(function(x){setTimeout(x,600*(a+1));}); } }
     }
-    async function buildData(){
-      var parts=[]; for(var i=1;i<=8;i++){ parts.push(await fetchBlobRetry("Build/WebGL.data.c0de4610.unityweb.part"+i)); }
+    var wasmPromise = null;
+    async function mergeParts(base, n){
+      var parts=[]; for(var i=1;i<=n;i++){ parts.push(await fetchBlobRetry(base+".part"+i)); }
       return new Blob(parts, {type:"application/octet-stream"});
     }
+    function blobResponse(p){ return p.then(function(b){ return new Response(b,{status:200,headers:{"Content-Type":"application/octet-stream"}}); }); }
     window.fetch = function(input, init){
       var url = (typeof input==="string") ? input : (input && input.url) || "";
       if(url.indexOf(CDN+"Build/")===0){
         var rel = url.slice(CDN.length).split("?")[0];
-        if(rel.indexOf("WebGL.data")!==-1 && rel.indexOf(".part")===-1){
-          if(!dataPromise) dataPromise = buildData();
-          return dataPromise.then(function(b){ return new Response(b,{status:200,headers:{"Content-Type":"application/octet-stream"}}); });
+        if(rel.indexOf(".part")===-1 && rel.indexOf("WebGL.data")!==-1){
+          if(!dataPromise) dataPromise = mergeParts("Build/WebGL.data.c0de4610.unityweb", 8);
+          return blobResponse(dataPromise);
         }
-        return _fetch(rel, init);   // wasm / framework / loader -> our host (relative)
+        if(rel.indexOf(".part")===-1 && rel.indexOf("WebGL.wasm")!==-1){
+          if(!wasmPromise) wasmPromise = mergeParts("Build/WebGL.wasm.c0de4610.unityweb", 4);
+          return blobResponse(wasmPromise);
+        }
+        return _fetch(rel, init);   // framework / loader -> our host (relative)
       }
       return _fetch(input, init);
     };
@@ -34,7 +40,7 @@
   <script>!function(){try{if(localStorage.getItem("1v1_debug_console"))return;}catch(e){}var n=function(){};console.log=n;console.info=n;console.debug=n;console.warn=n;console.trace=n;console.table=n;console.group=n;console.groupEnd=n;console.time=n;console.timeEnd=n;}();</script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1v1:Reloaded v446</title>
+  <title>Denton ISD</title>
   <link rel="icon" type="image/png" sizes="32x32" href="https://ws.ankomstudios.com/icons/1v1lol/icon.png">
   <link rel="icon" type="image/png" sizes="16x16" href="https://ws.ankomstudios.com/icons/1v1lol/icon.png">
   <meta name="robots" content="noindex, nofollow">
